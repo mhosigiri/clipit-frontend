@@ -1,103 +1,240 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useCallback, useEffect } from "react";
+import { analyzeVideo, checkHealth, getClipUrl, Clip as ClipType } from "./api/client";
+import FeedbackForm from "./components/FeedbackForm";
+import StatsDisplay from "./components/StatsDisplay";
+
+function Clip({ clip }: { clip: ClipType }) {
+  return (
+    <div className="clip-card rounded-lg p-4 mb-4 shadow-sm">
+      <div className="flex justify-between items-center mb-2">
+        <span className="text-sm text-green-700 font-medium">
+          {Math.floor(clip.duration)} seconds
+        </span>
+        <span className="text-xs bg-green-50 text-green-800 px-2 py-1 rounded-full">
+          Score: {clip.score.toFixed(2)}
+        </span>
+      </div>
+      <video
+        src={getClipUrl(clip.path)}
+        controls
+        className="w-full rounded-lg"
+      />
+    </div>
+  );
+}
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [file, setFile] = useState<File | null>(null);
+  const [prompt, setPrompt] = useState("");
+  const [clipCount, setClipCount] = useState<number>(3);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [clips, setClips] = useState<ClipType[]>([]);
+  const [memoryId, setMemoryId] = useState<string | null>(null);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [backendStatus, setBackendStatus] = useState<'connected'|'disconnected'|'checking'>('checking');
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  useEffect(() => {
+    const checkBackendStatus = async () => {
+      try {
+        await checkHealth();
+        setBackendStatus('connected');
+      } catch (err) {
+        console.error("Backend health check failed:", err);
+        setBackendStatus('disconnected');
+      }
+    };
+    
+    checkBackendStatus();
+    // Poll the backend status every 10 seconds
+    const interval = setInterval(checkBackendStatus, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile?.type.startsWith("video/")) {
+      setFile(droppedFile);
+      setError(null);
+    } else {
+      setError("Please upload a video file");
+    }
+  }, []);
+
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const selectedFile = e.target.files?.[0];
+      if (selectedFile?.type.startsWith("video/")) {
+        setFile(selectedFile);
+        setError(null);
+      } else {
+        setError("Please upload a video file");
+      }
+    },
+    []
+  );
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!file) {
+      setError("Please select a video file");
+      return;
+    }
+    
+    if (backendStatus !== 'connected') {
+      setError("Server is not connected. Please start the backend server.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setClips([]);
+    setMemoryId(null);
+    setShowFeedback(false);
+
+    try {
+      const response = await analyzeVideo(file, prompt, clipCount);
+      setClips(response.data.clips);
+      setMemoryId(response.data.memory_id);
+      setShowFeedback(true);
+    } catch (err: any) {
+      console.error("Video processing error:", err);
+      if (err.message?.includes("Network Error")) {
+        setError("Could not connect to the server. Please ensure the backend is running.");
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to process video");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFeedbackSubmitted = () => {
+    // Refresh stats after feedback is submitted
+    // Stats component will handle its own re-fetch
+  }
+
+  return (
+    <main className="min-h-screen">
+      <div className="app-container">
+        <h1 className="text-3xl font-bold mb-2 text-center text-green-800">ClipIt</h1>
+        
+        <div className={`text-sm text-center mb-6 ${
+          backendStatus === 'connected' ? 'text-green-600' : 
+          backendStatus === 'disconnected' ? 'text-red-600' : 'text-yellow-600'
+        }`}>
+          {backendStatus === 'connected' ? 'Server connected - Powered by Gemini AI' : 
+           backendStatus === 'disconnected' ? 'Server disconnected - please run start.sh' : 
+           'Checking server status...'}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        
+        {/* Stats Display */}
+        <StatsDisplay />
+
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-8 border border-green-100">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div
+              onDrop={handleDrop}
+              onDragOver={(e) => e.preventDefault()}
+              className="border-2 border-dashed border-green-200 rounded-lg p-8 text-center hover:border-green-500 transition-colors bg-green-50"
+            >
+              <input
+                type="file"
+                accept="video/*"
+                onChange={handleFileSelect}
+                className="hidden"
+                id="video-upload"
+              />
+              <label htmlFor="video-upload" className="cursor-pointer block">
+                {file ? (
+                  <div className="text-green-700 font-medium">Selected: {file.name}</div>
+                ) : (
+                  <div className="text-green-600">
+                    Drag and drop a video file here, or click to select
+                  </div>
+                )}
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label
+                  htmlFor="prompt"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  What kind of clip are you looking for?
+                </label>
+                <input
+                  type="text"
+                  id="prompt"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  className="w-full px-4 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  placeholder="e.g., action scenes, emotional moments, etc."
+                />
+              </div>
+              
+              <div>
+                <label
+                  htmlFor="clipCount"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  Number of clips to extract (1-5)
+                </label>
+                <input
+                  type="number"
+                  id="clipCount"
+                  min="1"
+                  max="5"
+                  value={clipCount}
+                  onChange={(e) => setClipCount(Math.min(5, Math.max(1, parseInt(e.target.value) || 1)))}
+                  className="w-full px-4 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || !file || backendStatus !== 'connected'}
+              className={`w-full py-3 px-4 rounded-lg text-white font-medium transition-colors
+                ${
+                  loading || !file || backendStatus !== 'connected'
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "green-button hover:bg-green-600"
+                }`}
+            >
+              {loading ? "Processing..." : backendStatus !== 'connected' ? "Server Disconnected" : "Extract Clips"}
+            </button>
+          </form>
+        </div>
+
+        {error && (
+          <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-lg border border-red-100">
+            {error}
+          </div>
+        )}
+
+        {clips.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold mb-4 text-green-800">Your Clips</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {clips.map((clip) => (
+                <Clip key={clip.id} clip={clip} />
+              ))}
+            </div>
+            
+            {showFeedback && memoryId && (
+              <FeedbackForm 
+                memoryId={memoryId} 
+                onFeedbackSubmitted={handleFeedbackSubmitted} 
+              />
+            )}
+          </div>
+        )}
+      </div>
+    </main>
   );
 }
