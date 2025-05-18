@@ -1,40 +1,20 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
-import { analyzeVideo, checkHealth, getClipUrl, Clip as ClipType } from "./api/client";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { analyzeVideo, checkHealth } from "./api/client";
 import FeedbackForm from "./components/FeedbackForm";
 import StatsDisplay from "./components/StatsDisplay";
-
-function Clip({ clip }: { clip: ClipType }) {
-  return (
-    <div className="clip-card rounded-lg p-4 mb-4 shadow-sm">
-      <div className="flex justify-between items-center mb-2">
-        <span className="text-sm text-green-700 font-medium">
-          {Math.floor(clip.duration)} seconds
-        </span>
-        <span className="text-xs bg-green-50 text-green-800 px-2 py-1 rounded-full">
-          Score: {clip.score.toFixed(2)}
-        </span>
-      </div>
-      <video
-        src={getClipUrl(clip.path)}
-        controls
-        className="w-full rounded-lg"
-      />
-    </div>
-  );
-}
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [prompt, setPrompt] = useState("");
-  const [clipCount, setClipCount] = useState<number>(3);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [clips, setClips] = useState<ClipType[]>([]);
-  const [memoryId, setMemoryId] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoId, setVideoId] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [backendStatus, setBackendStatus] = useState<'connected'|'disconnected'|'checking'>('checking');
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const checkBackendStatus = async () => {
@@ -91,14 +71,14 @@ export default function Home() {
 
     setLoading(true);
     setError(null);
-    setClips([]);
-    setMemoryId(null);
+    setVideoUrl(null);
+    setVideoId(null);
     setShowFeedback(false);
 
     try {
-      const response = await analyzeVideo(file, prompt, clipCount);
-      setClips(response.data.clips);
-      setMemoryId(response.data.memory_id);
+      const response = await analyzeVideo(file, prompt);
+      setVideoUrl(response.videoUrl);
+      setVideoId(response.video_id);
       setShowFeedback(true);
     } catch (err: any) {
       console.error("Video processing error:", err);
@@ -113,8 +93,8 @@ export default function Home() {
   };
 
   const handleFeedbackSubmitted = () => {
-    // Refresh stats after feedback is submitted
-    // Stats component will handle its own re-fetch
+    // Reset the form after feedback
+    setShowFeedback(false);
   }
 
   return (
@@ -159,41 +139,21 @@ export default function Home() {
               </label>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label
-                  htmlFor="prompt"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  What kind of clip are you looking for?
-                </label>
-                <input
-                  type="text"
-                  id="prompt"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  className="w-full px-4 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  placeholder="e.g., action scenes, emotional moments, etc."
-                />
-              </div>
-              
-              <div>
-                <label
-                  htmlFor="clipCount"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Number of clips to extract (1-5)
-                </label>
-                <input
-                  type="number"
-                  id="clipCount"
-                  min="1"
-                  max="5"
-                  value={clipCount}
-                  onChange={(e) => setClipCount(Math.min(5, Math.max(1, parseInt(e.target.value) || 1)))}
-                  className="w-full px-4 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                />
-              </div>
+            <div>
+              <label
+                htmlFor="prompt"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                What kind of clip are you looking for?
+              </label>
+              <input
+                type="text"
+                id="prompt"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                className="w-full px-4 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                placeholder="e.g., action scenes, emotional moments, etc."
+              />
             </div>
 
             <button
@@ -203,10 +163,10 @@ export default function Home() {
                 ${
                   loading || !file || backendStatus !== 'connected'
                     ? "bg-gray-400 cursor-not-allowed"
-                    : "green-button hover:bg-green-600"
+                    : "bg-green-500 hover:bg-green-600"
                 }`}
             >
-              {loading ? "Processing..." : backendStatus !== 'connected' ? "Server Disconnected" : "Extract Clips"}
+              {loading ? "Processing..." : backendStatus !== 'connected' ? "Server Disconnected" : "Extract Clip"}
             </button>
           </form>
         </div>
@@ -217,18 +177,23 @@ export default function Home() {
           </div>
         )}
 
-        {clips.length > 0 && (
+        {videoUrl && (
           <div className="mt-8">
-            <h2 className="text-xl font-semibold mb-4 text-green-800">Your Clips</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {clips.map((clip) => (
-                <Clip key={clip.id} clip={clip} />
-              ))}
+            <h2 className="text-xl font-semibold mb-4 text-green-800">Your Clip</h2>
+            <div className="w-full max-w-3xl mx-auto">
+              <video
+                ref={videoRef}
+                src={videoUrl}
+                controls
+                className="w-full rounded-lg"
+                autoPlay
+              />
             </div>
             
-            {showFeedback && memoryId && (
+            {showFeedback && videoId && (
               <FeedbackForm 
-                memoryId={memoryId} 
+                videoId={videoId}
+                prompt={prompt}
                 onFeedbackSubmitted={handleFeedbackSubmitted} 
               />
             )}

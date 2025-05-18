@@ -22,6 +22,10 @@ export default function StatsDisplay() {
     };
 
     fetchStats();
+    
+    // Refresh stats every 30 seconds
+    const interval = setInterval(fetchStats, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   if (loading) {
@@ -36,7 +40,7 @@ export default function StatsDisplay() {
     return null; // Hide stats on error
   }
 
-  if (!stats || stats.total_extractions === 0) {
+  if (!stats || stats.total_clips === 0) {
     return null; // Hide stats if none available
   }
 
@@ -46,31 +50,31 @@ export default function StatsDisplay() {
       
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-green-50 p-3 rounded-lg">
-          <p className="text-sm text-green-700 font-medium">Total Extractions</p>
-          <p className="text-2xl font-bold text-green-800">{stats.total_extractions}</p>
+          <p className="text-sm text-green-700 font-medium">Total Clips</p>
+          <p className="text-2xl font-bold text-green-800">{stats.total_clips}</p>
         </div>
         
         <div className="bg-green-50 p-3 rounded-lg">
           <p className="text-sm text-green-700 font-medium">Feedback Received</p>
-          <p className="text-2xl font-bold text-green-800">{stats.feedback_received}</p>
+          <p className="text-2xl font-bold text-green-800">{stats.feedback_count}</p>
         </div>
         
-        {stats.feedback_received > 0 && (
+        {stats.feedback_count > 0 && (
           <>
             <div className="bg-green-50 p-3 rounded-lg">
-              <p className="text-sm text-green-700 font-medium">Accuracy Rate</p>
-              <p className="text-2xl font-bold text-green-800">{Math.round(stats.accurate_percentage)}%</p>
+              <p className="text-sm text-green-700 font-medium">Satisfaction Rate</p>
+              <p className="text-2xl font-bold text-green-800">{Math.round(stats.satisfaction_rate * 100)}%</p>
             </div>
             
-            <div className="bg-red-50 p-3 rounded-lg">
-              <p className="text-sm text-red-700 font-medium">Need Improvement</p>
-              <p className="text-2xl font-bold text-red-800">{Math.round(stats.inaccurate_percentage)}%</p>
+            <div className="bg-blue-50 p-3 rounded-lg">
+              <p className="text-sm text-blue-700 font-medium">Positive Feedback</p>
+              <p className="text-2xl font-bold text-blue-800">{stats.positive_feedback}</p>
             </div>
           </>
         )}
       </div>
       
-      {stats.feedback_received > 0 && stats.accurate_percentage >= 80 && (
+      {stats.feedback_count > 0 && stats.satisfaction_rate >= 0.8 && (
         <div className="mt-3 text-sm text-green-600 text-center">
           Gemini AI is learning from your feedback to deliver better clips! 🚀
         </div>

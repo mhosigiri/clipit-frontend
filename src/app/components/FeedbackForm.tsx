@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { submitFeedback } from '../api/client';
 
 interface FeedbackFormProps {
-  memoryId: string;
+  videoId: string;
+  prompt: string;
   onFeedbackSubmitted: () => void;
 }
 
-export default function FeedbackForm({ memoryId, onFeedbackSubmitted }: FeedbackFormProps) {
-  const [isAccurate, setIsAccurate] = useState<boolean | null>(null);
+export default function FeedbackForm({ videoId, prompt, onFeedbackSubmitted }: FeedbackFormProps) {
+  const [isSatisfied, setIsSatisfied] = useState<boolean | null>(null);
   const [feedbackText, setFeedbackText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,8 +17,8 @@ export default function FeedbackForm({ memoryId, onFeedbackSubmitted }: Feedback
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (isAccurate === null) {
-      setError('Please select whether the clips were accurate or not');
+    if (isSatisfied === null) {
+      setError('Please select whether you liked the clip or not');
       return;
     }
     
@@ -26,8 +27,9 @@ export default function FeedbackForm({ memoryId, onFeedbackSubmitted }: Feedback
     
     try {
       await submitFeedback({
-        memory_id: memoryId,
-        is_accurate: isAccurate,
+        video_id: videoId,
+        prompt: prompt,
+        satisfied: isSatisfied,
         feedback_text: feedbackText || undefined
       });
       
@@ -54,15 +56,15 @@ export default function FeedbackForm({ memoryId, onFeedbackSubmitted }: Feedback
   
   return (
     <div className="bg-white rounded-lg shadow-sm p-4 mt-6 border border-green-100">
-      <h3 className="text-lg font-medium text-green-800 mb-3">How were the clips?</h3>
+      <h3 className="text-lg font-medium text-green-800 mb-3">How was the clip?</h3>
       
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="flex space-x-4">
           <button
             type="button"
-            onClick={() => setIsAccurate(true)}
+            onClick={() => setIsSatisfied(true)}
             className={`flex-1 py-2 px-4 rounded-lg transition-colors ${
-              isAccurate === true
+              isSatisfied === true
                 ? 'bg-green-500 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
@@ -72,9 +74,9 @@ export default function FeedbackForm({ memoryId, onFeedbackSubmitted }: Feedback
           
           <button
             type="button"
-            onClick={() => setIsAccurate(false)}
+            onClick={() => setIsSatisfied(false)}
             className={`flex-1 py-2 px-4 rounded-lg transition-colors ${
-              isAccurate === false
+              isSatisfied === false
                 ? 'bg-red-500 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
@@ -103,9 +105,9 @@ export default function FeedbackForm({ memoryId, onFeedbackSubmitted }: Feedback
         
         <button
           type="submit"
-          disabled={isSubmitting || isAccurate === null}
+          disabled={isSubmitting || isSatisfied === null}
           className={`w-full py-2 px-4 rounded-lg text-white font-medium transition-colors ${
-            isSubmitting || isAccurate === null
+            isSubmitting || isSatisfied === null
               ? 'bg-gray-400 cursor-not-allowed'
               : 'bg-green-500 hover:bg-green-600'
           }`}
