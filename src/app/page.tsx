@@ -98,28 +98,35 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen">
-      <div className="app-container">
-        <h1 className="text-3xl font-bold mb-2 text-center text-green-800">ClipIt</h1>
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="text-center mb-8">
+          <h1 className="text-5xl font-bold mb-3 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">ClipIt</h1>
+          <p className="text-lg text-slate-600 font-medium">AI-Powered Video Clip Extraction</p>
+        </div>
         
-        <div className={`text-sm text-center mb-6 ${
-          backendStatus === 'connected' ? 'text-green-600' : 
-          backendStatus === 'disconnected' ? 'text-red-600' : 'text-yellow-600'
+        <div className={`text-sm text-center mb-6 flex items-center justify-center gap-2 ${
+          backendStatus === 'connected' ? 'text-emerald-600' : 
+          backendStatus === 'disconnected' ? 'text-orange-500' : 'text-blue-500'
         }`}>
-          {backendStatus === 'connected' ? 'Server connected - Powered by Gemini AI' : 
-           backendStatus === 'disconnected' ? 'Server disconnected - please run start.sh' : 
-           'Checking server status...'}
+          <div className={`w-2 h-2 rounded-full ${
+            backendStatus === 'connected' ? 'bg-emerald-500 animate-pulse' : 
+            backendStatus === 'disconnected' ? 'bg-orange-400' : 'bg-blue-400 animate-pulse'
+          }`}></div>
+          {backendStatus === 'connected' ? '✨ Connected to AI Server' : 
+           backendStatus === 'disconnected' ? '🔄 Connecting to server...' : 
+           '⏳ Initializing...'}
         </div>
         
         {/* Stats Display */}
         <StatsDisplay />
 
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-8 border border-green-100">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 mb-8 border border-white/20">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div
               onDrop={handleDrop}
               onDragOver={(e) => e.preventDefault()}
-              className="border-2 border-dashed border-green-200 rounded-lg p-8 text-center hover:border-green-500 transition-colors bg-green-50"
+              className="border-2 border-dashed border-blue-200 rounded-xl p-10 text-center hover:border-blue-400 transition-all duration-300 bg-gradient-to-br from-blue-50 to-indigo-50 hover:shadow-lg"
             >
               <input
                 type="file"
@@ -130,10 +137,12 @@ export default function Home() {
               />
               <label htmlFor="video-upload" className="cursor-pointer block">
                 {file ? (
-                  <div className="text-green-700 font-medium">Selected: {file.name}</div>
+                  <div className="text-blue-700 font-semibold text-lg">📁 {file.name}</div>
                 ) : (
-                  <div className="text-green-600">
-                    Drag and drop a video file here, or click to select
+                  <div className="text-blue-600">
+                    <div className="text-4xl mb-3">🎬</div>
+                    <div className="font-semibold text-lg mb-1">Upload your video</div>
+                    <div className="text-sm text-slate-500">Drag & drop or click to select</div>
                   </div>
                 )}
               </label>
@@ -151,7 +160,7 @@ export default function Home() {
                 id="prompt"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                className="w-full px-4 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/70"
                 placeholder="e.g., action scenes, emotional moments, etc."
               />
             </div>
@@ -159,33 +168,35 @@ export default function Home() {
             <button
               type="submit"
               disabled={loading || !file || backendStatus !== 'connected'}
-              className={`w-full py-3 px-4 rounded-lg text-white font-medium transition-colors
-                ${
+              className={`w-full py-4 px-6 rounded-xl text-white font-semibold transition-all duration-300 transform ${
                   loading || !file || backendStatus !== 'connected'
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-green-500 hover:bg-green-600"
+                    ? "bg-slate-400 cursor-not-allowed"
+                    : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 hover:scale-[1.02] shadow-lg hover:shadow-xl"
                 }`}
             >
-              {loading ? "Processing..." : backendStatus !== 'connected' ? "Server Disconnected" : "Extract Clip"}
+              {loading ? "🚀 Processing with AI..." : backendStatus !== 'connected' ? "⏳ Connecting..." : "✨ Extract Clip with AI"}
             </button>
           </form>
         </div>
 
         {error && (
-          <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-lg border border-red-100">
-            {error}
+          <div className="mt-6 p-4 bg-red-50/80 backdrop-blur-sm text-red-700 rounded-xl border border-red-100/50 shadow-lg">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">⚠️</span>
+              <span>{error}</span>
+            </div>
           </div>
         )}
 
         {videoUrl && (
           <div className="mt-8">
-            <h2 className="text-xl font-semibold mb-4 text-green-800">Your Clip</h2>
-            <div className="w-full max-w-3xl mx-auto">
+            <h2 className="text-2xl font-bold mb-6 text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">🎬 Your AI-Generated Clip</h2>
+            <div className="w-full max-w-4xl mx-auto bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl">
               <video
                 ref={videoRef}
                 src={videoUrl}
                 controls
-                className="w-full rounded-lg"
+                className="w-full rounded-xl shadow-lg"
                 autoPlay
               />
             </div>
